@@ -1,0 +1,218 @@
+============================================================
+Sael German 2025-0725
+VPN Client-to-Site IPSec IKEv1 con L2TP
+============================================================
+
+TOPOLOGÍA:
+Net --- Cliente-Linux --- ISP --- R1-SERVER --- VPC-LAN
+
+DIRECCIONAMIENTO:
+ISP e0/0:             10.7.25.2/30
+ISP e0/1:             10.7.25.6/30
+R1-SERVER e0/0:       10.7.25.1/30
+R1-SERVER e0/1:       10.7.25.65/27
+Cliente-Linux ens4:   10.7.25.5/30
+Pool L2TP:            10.7.25.193 - 10.7.25.206
+VPC-LAN:              10.7.25.66/27 GW 10.7.25.65
+
+============================================================
+1. CONFIGURACIÓN ISP
+============================================================
+
+enable
+configure terminal
+hostname ISP
+ip cef
+
+interface Ethernet0/0
+ description WAN_HACIA_R1_SERVER
+ ip address 10.7.25.2 255.255.255.252
+ no shutdown
+
+interface Ethernet0/1
+ description WAN_HACIA_CLIENTE_LINUX
+ ip address 10.7.25.6 255.255.255.252
+ no shutdown
+
+end
+write memory
+
+============================================================
+2. CONFIGURACIÓN R1-SERVER
+============================================================
+
+enable
+configure terminal
+hostname R1-SERVER
+ip cef
+
+interface Ethernet0/0
+ description WAN_HACIA_ISP
+ ip address 10.7.25.1 255.255.255.252
+ no shutdown
+
+interface Ethernet0/1
+ description LAN_INTERNA
+ ip address 10.7.25.65 255.255.255.224
+ no shutdown
+
+ip route 0.0.0.0 0.0.0.0 10.7.25.2
+
+aaa new-model
+aaa authentication ppp L2TP-AUTH local
+aaa authorization network L2TP-AUTH local
+
+username vpnuser password 0 vpnpass
+
+ip local pool L2TP-POOL 10.7.25.193 10.7.25.206
+
+vpdn enable
+
+vpdn-group L2TP-GROUP
+ accept-dialin
+  protocol l2tp
+  virtual-template 1
+ no l2tp tunnel authentication
+
+interface Virtual-Template1
+ description CLIENTES_L2TP
+ ip unnumbered Ethernet0/1
+ peer default ip address pool L2TP-POOL
+ ppp authentication ms-chap-v2 L2TP-AUTH
+ ppp authorization L2TP-AUTH
+ ppp ipcp dns 8.8.8.8 1.1.1.1
+ no shutdown
+
+crypto isakmp policy 10
+ encr aes 256
+ hash sha
+ authentication pre-share
+ group 5
+ lifetime 86400
+
+crypto isakmp key VPN12345 address 0.0.0.0 0.0.0.0
+crypto isakmp keepalive 10 3
+
+crypto ipsec transform-set TS-L2TP esp-aes 256 esp-sha-hmac
+ mode transport
+
+crypto dynamic-map DYN-L2TP 10
+ set transform-set TS-L2TP
+
+crypto map VPN-MAP 10 ipsec-isakmp dynamic DYN-L2TP
+
+interface Ethernet0/0
+ crypto map VPN-MAP
+
+end
+write memory
+
+============================================================
+3. CONFIGURACIÓN VPC-LAN
+============================================================
+
+ip 10.7.25.66 255.255.255.224 10.7.25.65
+save
+
+============================================================
+4. CONFIGURACIÓN IP CLIENTE-LINUX
+============================================================
+
+sudo ip link set ens4 up
+sudo ip addr flush dev ens4
+sudo ip addr add 10.7.25.5/30 dev ens4
+sudo ip route add 10.7.25.1/32 via 10.7.25.6 dev ens4
+
+============================================================
+5. INSTALAR PAQUETES EN CLIENTE-LINUX
+============================================================
+
+sudo apt update
+sudo apt install strongswan xl2tpd ppp -y
+
+============================================================
+6. /etc/ipsec.conf
+============================================================
+
+config setup
+    uniqueids=no
+
+conn L2TP-PSK
+    keyexchange=ikev1
+    authby=secret
+    type=transport
+    left=10.7.25.5
+    leftprotoport=17/1701
+    right=10.7.25.1
+    rightprotoport=17/1701
+    ike=aes256-sha1-modp1536!
+    esp=aes256-sha1!
+    auto=add
+
+============================================================
+7. /etc/ipsec.secrets
+============================================================
+
+10.7.25.5 10.7.25.1 : PSK "VPN12345"
+
+============================================================
+8. /etc/xl2tpd/xl2tpd.conf
+============================================================
+
+[lac cisco-l2tp]
+lns = 10.7.25.1
+pppoptfile = /etc/ppp/options.l2tpd.client
+length bit = yes
+
+============================================================
+9. /etc/ppp/options.l2tpd.client
+============================================================
+
+ipcp-accept-local
+ipcp-accept-remote
+refuse-eap
+require-mschap-v2
+noccp
+noauth
+mtu 1400
+mru 1400
+name vpnuser
+password vpnpass
+usepeerdns
+
+============================================================
+10. LEVANTAR LA VPN
+============================================================
+
+sudo systemctl restart strongswan-starter
+sudo systemctl restart xl2tpd
+sudo ipsec up L2TP-PSK
+echo "c cisco-l2tp" | sudo tee /var/run/xl2tpd/l2tp-control
+ip addr show ppp0
+sudo ip route add 10.7.25.64/27 dev ppp0
+
+============================================================
+11. VERIFICACIÓN EN CLIENTE-LINUX
+============================================================
+
+ip a
+ip route
+ping 10.7.25.1
+ping 10.7.25.65
+ping 10.7.25.66
+tracepath 10.7.25.66
+
+============================================================
+12. VERIFICACIÓN EN R1-SERVER
+============================================================
+
+show ip interface brief
+show running-config | section vpdn
+show running-config interface virtual-template1
+show running-config | include ip local pool
+show running-config | section crypto
+show vpdn session
+show users
+show crypto isakmp sa
+show crypto ipsec sa
+show crypto session
