@@ -314,7 +314,7 @@ show crypto session
 
 ## 📎 Recursos
 
-📄 **Documentación Técnica:** [Ver Informe PDF](SaelGerman_2025-0725_L2TP_IPSec_IKEV1_Client_to_Site_P2.pdf)  
+📄 **Documentación Técnica:** [Ver Informe PDF](SaelGerman_2025-0725_L2TP-IPSec-IKEV1-Client-to-Site_P2.pdf)  
 ▶️ **Video Demostración:** [Ver en YouTube](https://youtu.be/ADtxan91PLg)
 
 ---
