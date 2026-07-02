@@ -279,7 +279,7 @@ show crypto session
 | Archivo | Descripción |
 |:-------:|-------------|
 | [`SaelGerman_2025-0725_Script_L2TP_IPSec_IKEv1_Client_to_Site.txt`](SaelGerman_2025-0725_Script_L2TP_IPSec_IKEv1_Client_to_Site.txt) | Scripts de configuración Cisco IOS y Linux |
-| [`SaelGerman_2025-0725_L2TP_IPSec_IKEV1_Client_to_Site_P2.pdf`](SaelGerman_2025-0725_L2TP_IPSec_IKEV1_Client_to_Site_P2.pdf) | Documentación técnica completa |
+| [`SaelGerman_2025-0725_L2TP-IPSec-IKEV1-Client-to-Site_P2.pdf`](SaelGerman_2025-0725_L2TP-IPSec-IKEV1-Client-to-Site_P2.pdf) | Documentación técnica completa |
 
 ---
 
